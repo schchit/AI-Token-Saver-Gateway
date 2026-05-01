@@ -1,11 +1,14 @@
-"""AI Token Saver Gateway - production-oriented v0.2."""
+"""AI Token Saver Gateway - production-oriented v0.3."""
 from __future__ import annotations
 
 import json
+import os
 import re
+import time
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict, Iterable, List, Tuple
+from threading import Lock
+from typing import Any, Dict, Iterable, List
 
 STOPWORDS = {
     "the", "a", "an", "is", "are", "was", "were", "be", "to", "of", "and", "or", "in", "on", "for", "with",
@@ -132,7 +135,31 @@ def gateway_transform(payload: Dict[str, Any], strategy: CompressionStrategy | N
     }
 
 
+class RateLimiter:
+    def __init__(self, requests_per_minute: int = 120):
+        self.requests_per_minute = requests_per_minute
+        self._hits: Dict[str, List[float]] = {}
+        self._lock = Lock()
+
+    def allow(self, client_id: str) -> bool:
+        now = time.time()
+        with self._lock:
+            arr = [t for t in self._hits.get(client_id, []) if now - t <= 60]
+            if len(arr) >= self.requests_per_minute:
+                self._hits[client_id] = arr
+                return False
+            arr.append(now)
+            self._hits[client_id] = arr
+            return True
+
+
+RATE_LIMITER = RateLimiter(int(os.getenv("GATEWAY_RPM", "120")))
+API_KEY = os.getenv("GATEWAY_API_KEY", "")
+
+
 class GatewayHandler(BaseHTTPRequestHandler):
+    server_version = "AITokenSaverGateway/0.3"
+
     def _json_response(self, code: int, data: Dict[str, Any]) -> None:
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -141,24 +168,61 @@ class GatewayHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _request_id(self) -> str:
+        return self.headers.get("X-Request-Id", f"req-{int(time.time()*1000)}")
+
+    def _client_id(self) -> str:
+        return self.client_address[0] if self.client_address else "unknown"
+
+    def _authorized(self) -> bool:
+        if not API_KEY:
+            return True
+        return self.headers.get("X-API-Key", "") == API_KEY
+
+    def _guard(self) -> bool:
+        rid = self._request_id()
+        if not self._authorized():
+            self._json_response(401, {"error": "unauthorized", "request_id": rid})
+            return False
+        if not RATE_LIMITER.allow(self._client_id()):
+            self._json_response(429, {"error": "rate limit exceeded", "request_id": rid})
+            return False
+        return True
+
     def do_GET(self):
+        rid = self._request_id()
         if self.path == "/health":
-            self._json_response(200, {"status": "ok"})
+            self._json_response(200, {"status": "ok", "request_id": rid})
             return
-        self._json_response(404, {"error": "not found"})
+        if self.path == "/metrics":
+            self._json_response(200, {
+                "service": "ai-token-saver-gateway",
+                "rate_limit_rpm": RATE_LIMITER.requests_per_minute,
+                "auth_enabled": bool(API_KEY),
+                "request_id": rid,
+            })
+            return
+        self._json_response(404, {"error": "not found", "request_id": rid})
 
     def do_POST(self):
+        rid = self._request_id()
         if self.path not in ("/compress", "/transform"):
-            self._json_response(404, {"error": "not found"})
+            self._json_response(404, {"error": "not found", "request_id": rid})
             return
+        if not self._guard():
+            return
+
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length).decode("utf-8") if length else "{}"
         try:
             payload = json.loads(raw)
         except json.JSONDecodeError:
-            self._json_response(400, {"error": "invalid json"})
+            self._json_response(400, {"error": "invalid json", "request_id": rid})
             return
-        self._json_response(200, gateway_transform(payload))
+
+        result = gateway_transform(payload)
+        result["request_id"] = rid
+        self._json_response(200, result)
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8080) -> None:
