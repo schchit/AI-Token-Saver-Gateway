@@ -1,5 +1,3 @@
-# AI-Token-Saver-Gateway
-Compress agent-to-agent messages into minimal decision-ready JSON to cut LLM token cost.
 # AI-Token-Saver-Gateway (v2.1)
 
 补齐“最后一公里”：真实 LLM 调用、Redis 多实例限流、一键部署和业务 benchmark 接入。
