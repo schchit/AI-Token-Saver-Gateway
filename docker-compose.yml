@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - configs/prod.env
+    depends_on:
+      - redis
