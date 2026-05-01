@@ -1,12 +1,2 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/benchmarks/business_cases.sample.jsonl b/benchmarks/business_cases.sample.jsonl
-new file mode 100644
-index 0000000000000000000000000000000000000000..50b58c3911e3bcdbe06cd7992701b3fa5a3ee223
---- /dev/null
-+++ b/benchmarks/business_cases.sample.jsonl
-@@ -0,0 +1,2 @@
-+{"id":"biz_001","target":"deploy_decision","message":"Fact: checkout p95 latency +30%. Next step: pause release.","expected_action":"pause"}
-+{"id":"biz_002","target":"deploy_decision","message":"Fact: canary error rate stable 0.02%. Next step: deploy full.","expected_action":"deploy"}
- 
-EOF
-)
+{"id":"biz_001","target":"deploy_decision","message":"Fact: checkout p95 latency +30%. Next step: pause release.","expected_action":"pause"}
+{"id":"biz_002","target":"deploy_decision","message":"Fact: canary error rate stable 0.02%. Next step: deploy full.","expected_action":"deploy"}
