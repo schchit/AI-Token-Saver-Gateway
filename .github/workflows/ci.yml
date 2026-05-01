@@ -1,0 +1,23 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..f311bd0fa04a00c205274560814326192e77cee5
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,13 @@
++name: ci
++on: [push, pull_request]
++jobs:
++  test:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.11'
++      - run: pip install -r requirements.txt
++      - run: python -m unittest -v
++      - run: BENCHMARK_GATE=0.95 python benchmarks/evaluate.py
+ 
+EOF
+)
