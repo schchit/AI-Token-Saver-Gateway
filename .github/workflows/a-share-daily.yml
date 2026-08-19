@@ -38,6 +38,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -56,5 +58,6 @@ jobs:
             echo "No report file changes to commit."
           else
             git commit -m "chore: publish A-share pre-market report"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
