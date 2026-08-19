@@ -6,6 +6,9 @@ on:
     paths:
       - ".github/workflows/a-share-daily.yml"
       - "automation/a-share-daily/main.py"
+      - "automation/a-share-daily/runner.py"
+      - "automation/a-share-daily/source_fallback.py"
+      - "automation/a-share-daily/decision_rules.py"
       - "automation/a-share-daily/prompt.md"
       - "automation/a-share-daily/portfolio.json"
   schedule:
@@ -16,7 +19,6 @@ on:
 permissions:
   contents: write
   issues: write
-  models: read
 
 concurrency:
   group: a-share-daily-decision
@@ -25,7 +27,7 @@ concurrency:
 jobs:
   generate-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ github.token }}
       REPORT_ASSIGNEE: schchit
@@ -43,7 +45,7 @@ jobs:
           python-version: "3.12"
 
       - name: Generate and push pre-market report
-        run: python automation/a-share-daily/main.py
+        run: python automation/a-share-daily/runner.py
 
       - name: Commit report archive
         run: |
